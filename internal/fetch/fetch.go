@@ -1,5 +1,5 @@
 package fetch
 
 import (
-	"github.com/internal/entity"
+	"github.com/darbs/thavma-twitter/internal/entity"
 )

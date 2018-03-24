@@ -7,6 +7,8 @@ import (
 
 	//"golang.org/x/oauth2"
 	"github.com/dghubble/oauth1"
+	"github.com/darbs/thavma-twitter/internal/fetch"
+
 	"os"
 	//"os/signal"
 	//"syscall"
