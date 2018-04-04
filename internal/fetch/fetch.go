@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/darbs/thavma-twitter/internal/entity"
 	//"github.com/darbs/thavma-twitter/internal/entity"
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
@@ -34,6 +35,7 @@ func Get(symbol string) {
 
 	search, _, err := twClient.Search.Tweets(&twitter.SearchTweetParams{
 		Query: symbol, // todo validate symbol
+		// todo restrict by last id
 	})
 
 	if err != nil {
@@ -43,9 +45,18 @@ func Get(symbol string) {
 	i := 0
 	l := len(search.Statuses)
 	for i < l {
-		fmt.Printf("Id: %v U: %v R: %v T: %v\n", search.Statuses[i].ID, search.Statuses[i].User.Name, search.Statuses[i].Retweeted, search.Statuses[i].Text)
+		//fmt.Printf("Id: %v U: %v R: %v T: %v\n", search.Statuses[i].ID, search.Statuses[i].User.ScreenName, search.Statuses[i].RetweetCount, search.Statuses[i].Text)
 		//fmt.Printf("SEARCH TWEETS:\n%+v\n", search.Statuses[i].ID, search.Statuses[i].Text, search.Statuses[i].RetweetedStatus)
+		t, _ := search.Statuses[i].CreatedAtTime()
+		tweet := entity.Tweet{
+			EntityId: search.Statuses[i].ID,
+			Date:     t.UTC(),
+			Weight:   search.Statuses[i].RetweetCount,
+			Creator:  search.Statuses[i].User.ScreenName,
+			Content:  search.Statuses[i].Text,
+		}
 
+		tweet.Save()
 		i++
 	}
 	fmt.Printf("SEARCH METADATA:\n%+v\n", search.Metadata)
