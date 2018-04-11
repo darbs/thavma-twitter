@@ -2,71 +2,127 @@ package entity
 
 import (
 	"fmt"
+	"os"
+	//"os"
 	"time"
 
 	//"github.com/aws/aws-sdk-go/aws"
 	//"github.com/aws/aws-sdk-go/aws/session"
 	//"github.com/aws/aws-sdk-go/service/dynamodb"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+
+	//"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
+/**
+TODO play with inheritence if we get more than one table
+ */
 type Tweet struct {
-	EntityId int64     `json:"entity_id"`
+	EntityId int64     `json:"entityId"`
+	Symbol   string    `json:"symbol"`
 	Date     time.Time `json:"date"`
 	Weight   int       `json:"weight"`
 	Creator  string    `json:"creator"`
 	Content  string    `json:"content"`
 }
 
+var (
+	tableName = "Tweet"
+	service   *dynamodb.DynamoDB
+)
+
+func initConnection() {
+	awsSession, err := session.NewSession()
+
+	if err != nil {
+		fmt.Println("Failed initiating AWS session\n")
+		fmt.Printf("%v\n", err)
+	}
+
+	service = dynamodb.New(awsSession)
+}
+
 func init() {
-	//sess, _ := session.NewSession(&aws.Config{
-	//	Region: aws.String("us-west-2")},
-	//)
+	//Create DynamoDB client
+	initConnection()
+	input := &dynamodb.CreateTableInput{
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{
+				AttributeName: aws.String("entityId"),
+				AttributeType: aws.String("N"),
+			},
+			{
+				AttributeName: aws.String("symbol"),
+				AttributeType: aws.String("S"),
+			},
+		},
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{
+				AttributeName: aws.String("symbol"),
+				KeyType:       aws.String("HASH"),
+			},
+			{
+				AttributeName: aws.String("entityId"),
+				KeyType:       aws.String("RANGE"),
+			},
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(10),
+			WriteCapacityUnits: aws.Int64(10),
+		},
+		TableName: aws.String(tableName),
+	}
 
-	// Create DynamoDB client
-	//svc := dynamodb.New(sess)
-	//
-	//input := &dynamodb.CreateTableInput{
-	//	AttributeDefinitions: []*dynamodb.AttributeDefinition{
-	//		{
-	//			AttributeName: aws.String("creator"),
-	//			AttributeType: aws.String("S"),
-	//		},
-	//		{
-	//			AttributeName: aws.String("content"),
-	//			AttributeType: aws.String("S"),
-	//		},
-	//	},
-	//	KeySchema: []*dynamodb.KeySchemaElement{
-	//		{
-	//			AttributeName: aws.String("year"),
-	//			KeyType:       aws.String("HASH"),
-	//		},
-	//		{
-	//			AttributeName: aws.String("title"),
-	//			KeyType:       aws.String("RANGE"),
-	//		},
-	//		{
-	//			AttributeName: aws.String("entityId"),
-	//			KeyType:       aws.String("N"),
-	//		},
-	//	},
-	//	ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-	//		ReadCapacityUnits:  aws.Int64(10),
-	//		WriteCapacityUnits: aws.Int64(10),
-	//	},
-	//	TableName: aws.String("Movies"),
-	//}
+	_, err := service.CreateTable(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeResourceInUseException:
+				fmt.Println(dynamodb.ErrCodeResourceInUseException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+				os.Exit(1) // todo a restart option
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+	}
+
+	fmt.Printf("Verifying %v table", tableName)
+	err = service.WaitUntilTableExists(&dynamodb.DescribeTableInput{
+		TableName: &tableName,
+	})
+
+	if err != nil {
+		fmt.Printf("Failed to verify %v table", tableName)
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }
 
-// todo all this bs
 func (t Tweet) Save() {
-	// TODO
-	fmt.Printf("Id:%v Date: %v Creator: %v Wieght: %v Content: %v\n", t.EntityId, t.Date, t.Creator, t.Weight, t.Content)
+	status, err := dynamodbattribute.MarshalMap(t)
+
+	if err != nil {
+		fmt.Println("Got error marshalling map:")
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	input := &dynamodb.PutItemInput{
+		Item:      status,
+		TableName: aws.String(tableName),
+	}
+	fmt.Printf("%v\n", input)
+
+	_, err = service.PutItem(input)
+	if err != nil {
+		fmt.Println("Got error calling PutItem:")
+		fmt.Println(err.Error())
+	}
 }
-
-//sess, err := session.NewSession(&aws.Config{
-//Region: aws.String("us-west-2")},
-//)
-
-// Create DynamoDB client
-//svc := dynamodb.New(sess)

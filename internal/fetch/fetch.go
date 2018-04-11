@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/darbs/thavma-twitter/internal/entity"
 	//"github.com/darbs/thavma-twitter/internal/entity"
@@ -30,6 +31,11 @@ func init() {
 	twClient = twitter.NewClient(httpClient)
 }
 
+/*
+Get tweets done by search term
+
+dream of premium api access
+ */
 func Get(symbol string) {
 	fmt.Printf("Fetching Tweets for %s\n", symbol)
 
@@ -50,6 +56,7 @@ func Get(symbol string) {
 		t, _ := search.Statuses[i].CreatedAtTime()
 		tweet := entity.Tweet{
 			EntityId: search.Statuses[i].ID,
+			Symbol:   strings.Trim(symbol, "$"),
 			Date:     t.UTC(),
 			Weight:   search.Statuses[i].RetweetCount,
 			Creator:  search.Statuses[i].User.ScreenName,
